@@ -9,8 +9,8 @@
   const EDGE_MARGIN = 8;
   const COUNT_BADGE_OFFSET = 8;
   const DEFAULT_COUNT_SETTINGS = {
-    enabled: true,
-    threshold: 30
+    characterCountEnabled: true,
+    characterCountThreshold: 30
   };
 
   let searchIcon = null;
@@ -68,9 +68,51 @@
     const badge = document.createElement('div');
     badge.id = COUNT_BADGE_ID;
     badge.setAttribute('aria-hidden', 'true');
+    applyCountBadgeBaseStyles(badge);
+    applyCountBadgeVisibility(badge, false);
 
     (document.body || document.documentElement).appendChild(badge);
     return badge;
+  }
+
+  function setImportantStyle(element, property, value) {
+    element.style.setProperty(property, value, 'important');
+  }
+
+  function applyCountBadgeBaseStyles(badge) {
+    const styles = {
+      position: 'fixed',
+      'box-sizing': 'border-box',
+      display: 'inline-flex',
+      'align-items': 'center',
+      'justify-content': 'center',
+      'min-width': '38px',
+      height: '24px',
+      padding: '0 8px',
+      border: '1px solid rgba(15, 23, 42, 0.12)',
+      'border-radius': '999px',
+      background: 'rgba(17, 24, 39, 0.9)',
+      color: '#ffffff',
+      'font-family': 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      'font-size': '12px',
+      'font-weight': '600',
+      'line-height': '1',
+      'white-space': 'nowrap',
+      'z-index': '2147483647',
+      'box-shadow': '0 6px 18px rgba(15, 23, 42, 0.22)',
+      'pointer-events': 'none',
+      'user-select': 'none'
+    };
+
+    Object.entries(styles).forEach(([property, value]) => {
+      setImportantStyle(badge, property, value);
+    });
+  }
+
+  function applyCountBadgeVisibility(badge, isVisible) {
+    setImportantStyle(badge, 'opacity', isVisible ? '1' : '0');
+    setImportantStyle(badge, 'visibility', isVisible ? 'visible' : 'hidden');
+    setImportantStyle(badge, 'transform', isVisible ? 'scale(1)' : 'scale(0.92)');
   }
 
   function clamp(value, min, max) {
@@ -78,13 +120,13 @@
   }
 
   function normalizeCountSettings(settings) {
-    const threshold = Number.parseInt(settings.threshold, 10);
+    const threshold = Number.parseInt(settings.characterCountThreshold, 10);
 
     return {
-      enabled: settings.enabled !== false,
-      threshold: Number.isFinite(threshold) && threshold > 0
+      characterCountEnabled: settings.characterCountEnabled !== false,
+      characterCountThreshold: Number.isFinite(threshold) && threshold > 0
         ? threshold
-        : DEFAULT_COUNT_SETTINGS.threshold
+        : DEFAULT_COUNT_SETTINGS.characterCountThreshold
     };
   }
 
@@ -184,13 +226,15 @@
     countBadge.textContent = `${characterCount}\u6587\u5b57`;
 
     const position = getCountBadgePosition(point);
-    countBadge.style.left = `${position.x}px`;
-    countBadge.style.top = `${position.y}px`;
+    setImportantStyle(countBadge, 'left', `${position.x}px`);
+    setImportantStyle(countBadge, 'top', `${position.y}px`);
+    applyCountBadgeVisibility(countBadge, true);
     countBadge.classList.add(COUNT_BADGE_VISIBLE_CLASS);
   }
 
   function hideCountBadge() {
     if (countBadge) {
+      applyCountBadgeVisibility(countBadge, false);
       countBadge.classList.remove(COUNT_BADGE_VISIBLE_CLASS);
     }
   }
@@ -258,7 +302,10 @@
       selectedText = text;
       showIcon(point);
 
-      if (countSettings.enabled && characterCount >= countSettings.threshold) {
+      if (
+        countSettings.characterCountEnabled &&
+        characterCount >= countSettings.characterCountThreshold
+      ) {
         showCountBadge(point, characterCount);
       } else {
         hideCountBadge();
@@ -283,10 +330,14 @@
         return;
       }
 
-      if (changes.enabled || changes.threshold) {
+      if (changes.characterCountEnabled || changes.characterCountThreshold) {
         countSettings = normalizeCountSettings({
-          enabled: changes.enabled ? changes.enabled.newValue : countSettings.enabled,
-          threshold: changes.threshold ? changes.threshold.newValue : countSettings.threshold
+          characterCountEnabled: changes.characterCountEnabled
+            ? changes.characterCountEnabled.newValue
+            : countSettings.characterCountEnabled,
+          characterCountThreshold: changes.characterCountThreshold
+            ? changes.characterCountThreshold.newValue
+            : countSettings.characterCountThreshold
         });
         hideCountBadge();
       }

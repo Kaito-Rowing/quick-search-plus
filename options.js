@@ -1,6 +1,6 @@
 const DEFAULT_SETTINGS = {
-  enabled: true,
-  threshold: 30
+  characterCountEnabled: true,
+  characterCountThreshold: 30
 };
 
 const form = document.querySelector('#settings-form');
@@ -12,7 +12,7 @@ function normalizeThreshold(value) {
   const threshold = Number.parseInt(value, 10);
 
   if (!Number.isFinite(threshold) || threshold < 1) {
-    return DEFAULT_SETTINGS.threshold;
+    return DEFAULT_SETTINGS.characterCountThreshold;
   }
 
   return threshold;
@@ -29,8 +29,8 @@ function setStatus(message) {
 }
 
 function renderSettings(settings) {
-  enabledInput.checked = settings.enabled !== false;
-  thresholdInput.value = String(normalizeThreshold(settings.threshold));
+  enabledInput.checked = settings.characterCountEnabled !== false;
+  thresholdInput.value = String(normalizeThreshold(settings.characterCountThreshold));
 }
 
 function loadSettings() {
@@ -48,11 +48,11 @@ function saveSettings(event) {
   event.preventDefault();
 
   const settings = {
-    enabled: enabledInput.checked,
-    threshold: normalizeThreshold(thresholdInput.value)
+    characterCountEnabled: enabledInput.checked,
+    characterCountThreshold: normalizeThreshold(thresholdInput.value)
   };
 
-  thresholdInput.value = String(settings.threshold);
+  thresholdInput.value = String(settings.characterCountThreshold);
 
   chrome.storage.sync.set(settings, () => {
     if (chrome.runtime.lastError) {
