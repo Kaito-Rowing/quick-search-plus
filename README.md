@@ -7,7 +7,10 @@ It keeps the original selected-text Google search behavior and adds an optional 
 
 - Shows a search icon when text is selected on a web page.
 - Opens a Google search for the selected text in a new tab when the icon is clicked.
+- Shows a copy button for selected text.
+- Opens URL-like selections such as `https://example.com`, `example.com/path`, and `www.example.com` directly in a new tab.
 - Shows a small character-count badge near the selection cursor when the selected text reaches the configured threshold.
+- Lets you turn the copy button and URL-open behavior on or off from the extension options page.
 - Lets you turn the character-count badge on or off from the extension options page.
 - Lets you change the character-count threshold. The default is 30 characters.
 
@@ -25,19 +28,24 @@ Open the extension options page to configure:
 
 - `Show character count for longer selections`: enables or disables the badge.
 - `Minimum characters`: controls the threshold for showing the badge.
+- `Show copy button`: enables or disables the copy action.
+- `Open URL-like selections instead of searching`: enables or disables URL detection.
 
 The default settings are:
 
 - Character count enabled: `true`
 - Minimum characters: `30`
+- Copy button enabled: `true`
+- URL-like selection opening enabled: `true`
 
 ## Permissions and Security
 
-- `storage` is used only to save the character-count setting and threshold.
+- `storage` is used only to save the options for copy, URL opening, and character-count display.
+- `clipboardWrite` is used only to write selected text to the clipboard when you click the copy button. The extension does not request clipboard read permission.
 - `content_scripts.matches` uses `<all_urls>` so the extension can detect selected text and show the search icon on any page.
 - The extension does not store selected text, browsing history, or page content.
-- The selected text is only placed into a Google Search URL after the user clicks the search icon.
-- Search tabs are opened with `noopener,noreferrer` so the opened page cannot reference the original page.
+- The selected text is only placed into a Google Search URL after the user clicks the search icon, copied after the user clicks the copy button, or opened as a URL after the user clicks the open-link icon.
+- Search and URL tabs are opened with `noopener,noreferrer` so the opened page cannot reference the original page.
 - The extension does not use `eval`, dynamic script execution, external API calls, or remote code loading.
 
 ## Development
@@ -47,9 +55,9 @@ No build step is required. After editing files, reload the extension from `chrom
 Main files:
 
 - `manifest.json`: Chrome extension definition.
-- `content.js`: selected-text detection, search icon behavior, and character-count badge behavior.
-- `styles.css`: search icon and character-count badge styles.
-- `options.html` and `options.js`: settings UI for the character-count badge.
+- `content.js`: selected-text detection, search/open/copy behavior, and character-count badge behavior.
+- `styles.css`: selection toolbar and character-count badge styles.
+- `options.html` and `options.js`: settings UI for selection actions.
 - `icons/`: extension icons.
 
 ## License

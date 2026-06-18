@@ -1,9 +1,13 @@
 const DEFAULT_SETTINGS = {
   characterCountEnabled: true,
-  characterCountThreshold: 30
+  characterCountThreshold: 30,
+  copyButtonEnabled: true,
+  openUrlEnabled: true
 };
 
 const form = document.querySelector('#settings-form');
+const copyEnabledInput = document.querySelector('#copy-enabled');
+const openUrlEnabledInput = document.querySelector('#open-url-enabled');
 const enabledInput = document.querySelector('#count-enabled');
 const thresholdInput = document.querySelector('#count-threshold');
 const statusElement = document.querySelector('#status');
@@ -31,6 +35,8 @@ function setStatus(message) {
 function renderSettings(settings) {
   enabledInput.checked = settings.characterCountEnabled !== false;
   thresholdInput.value = String(normalizeThreshold(settings.characterCountThreshold));
+  copyEnabledInput.checked = settings.copyButtonEnabled !== false;
+  openUrlEnabledInput.checked = settings.openUrlEnabled !== false;
 }
 
 function loadSettings() {
@@ -49,7 +55,9 @@ function saveSettings(event) {
 
   const settings = {
     characterCountEnabled: enabledInput.checked,
-    characterCountThreshold: normalizeThreshold(thresholdInput.value)
+    characterCountThreshold: normalizeThreshold(thresholdInput.value),
+    copyButtonEnabled: copyEnabledInput.checked,
+    openUrlEnabled: openUrlEnabledInput.checked
   };
 
   thresholdInput.value = String(settings.characterCountThreshold);

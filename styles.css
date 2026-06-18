@@ -1,20 +1,11 @@
-#quick-google-search-icon {
+#quick-search-plus-toolbar {
   all: initial;
   position: fixed !important;
-  width: 40px !important;
-  height: 40px !important;
-  min-width: 40px !important;
-  min-height: 40px !important;
   box-sizing: border-box !important;
-  display: flex !important;
+  display: inline-flex !important;
   align-items: center !important;
-  justify-content: center !important;
+  gap: 6px !important;
   padding: 0 !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-  border-radius: 999px !important;
-  background: linear-gradient(135deg, #2563eb, #16a34a) !important;
-  color: #ffffff !important;
-  cursor: pointer !important;
   z-index: 2147483647 !important;
   opacity: 0 !important;
   visibility: hidden !important;
@@ -22,35 +13,87 @@
   transition:
     opacity 140ms ease,
     transform 140ms ease,
-    visibility 140ms ease,
-    box-shadow 140ms ease !important;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.25) !important;
-  appearance: none !important;
+    visibility 140ms ease !important;
   user-select: none !important;
   contain: layout style paint !important;
 }
 
-#quick-google-search-icon.quick-google-search-icon--visible {
+#quick-search-plus-toolbar.quick-search-plus-toolbar--visible {
   opacity: 1 !important;
   visibility: visible !important;
   transform: scale(1) !important;
 }
 
-#quick-google-search-icon:hover {
+#quick-google-search-icon,
+#quick-search-plus-copy-button {
+  all: initial;
+  position: static !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 999px !important;
+  color: #ffffff !important;
+  cursor: pointer !important;
+  appearance: none !important;
+  user-select: none !important;
+  contain: layout style paint !important;
+}
+
+#quick-google-search-icon {
+  background: linear-gradient(135deg, #2563eb, #16a34a) !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.25) !important;
+}
+
+#quick-google-search-icon.quick-search-plus-primary--open {
+  background: linear-gradient(135deg, #0891b2, #2563eb) !important;
+}
+
+#quick-search-plus-copy-button {
+  background: rgba(17, 24, 39, 0.9) !important;
+  box-shadow: 0 7px 20px rgba(15, 23, 42, 0.22) !important;
+}
+
+#quick-google-search-icon:hover,
+#quick-search-plus-copy-button:hover {
   transform: scale(1.06) !important;
+}
+
+#quick-google-search-icon:hover {
   box-shadow: 0 10px 28px rgba(37, 99, 235, 0.32) !important;
 }
 
-#quick-google-search-icon:active {
+#quick-search-plus-copy-button:hover {
+  box-shadow: 0 9px 24px rgba(15, 23, 42, 0.3) !important;
+}
+
+#quick-google-search-icon:active,
+#quick-search-plus-copy-button:active {
   transform: scale(0.96) !important;
 }
 
-#quick-google-search-icon:focus-visible {
+#quick-google-search-icon:focus-visible,
+#quick-search-plus-copy-button:focus-visible {
   outline: 3px solid rgba(59, 130, 246, 0.45) !important;
   outline-offset: 3px !important;
 }
 
-#quick-google-search-icon svg {
+#quick-search-plus-copy-button.quick-search-plus-copy-button--success {
+  background: #15803d !important;
+}
+
+#quick-search-plus-copy-button.quick-search-plus-copy-button--error {
+  background: #b91c1c !important;
+}
+
+#quick-google-search-icon svg,
+#quick-search-plus-copy-button svg {
   width: 20px !important;
   height: 20px !important;
   display: block !important;

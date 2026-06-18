@@ -100,9 +100,19 @@
   <body>
     <main>
       <h1>Quick Search Plus Options</h1>
-      <p>Control the optional character count shown near selected text. Google search behavior is unchanged.</p>
+      <p>Control selection actions shown near selected text.</p>
 
       <form id="settings-form">
+        <label class="checkbox-label">
+          <input id="copy-enabled" type="checkbox">
+          Show copy button
+        </label>
+
+        <label class="checkbox-label">
+          <input id="open-url-enabled" type="checkbox">
+          Open URL-like selections instead of searching
+        </label>
+
         <label class="checkbox-label">
           <input id="count-enabled" type="checkbox">
           Show character count for longer selections
