@@ -25,6 +25,18 @@
 - `eval`、動的スクリプト実行、ストレージ保存、外部API通信、リモートコード読み込みは使用していません。
 - 検索タブは `noopener,noreferrer` 付きで開き、開いたページから元ページを参照できないようにしています。
 
+## オープンソースと透明性
+
+ブラウザ拡張機能は表示中のページ上で動くため、どんな処理をしているのか不安になりやすい種類のソフトウェアです。この拡張機能は完全にオープンソースで、実際に動くコードをこのリポジトリ上で確認できます。
+
+安心材料として、次の点を明確にしています。
+
+- Chrome拡張機能の追加権限を要求しません。
+- 選択したテキスト、閲覧履歴、ページ内容を保存しません。
+- 外部サーバーへバックグラウンド送信しません。
+- ユーザーが検索アイコンをクリックした時だけ、選択テキストをGoogle検索URLに入れて新しいタブを開きます。
+- ビルド手順がないため、リポジトリ内のファイルがそのまま拡張機能として読み込まれます。
+
 ## 開発
 
 この拡張機能はビルド手順なしで動作します。ファイルを編集した後は、`chrome://extensions/` で拡張機能を再読み込みしてください。
@@ -62,6 +74,18 @@ Quick Google Search is a Chrome extension that shows a search icon near selected
 - The only external navigation happens when the user clicks the search icon, which opens Google Search in a new tab.
 - The extension does not use `eval`, dynamic script execution, local storage, external API calls, or remote code loading.
 - Search tabs are opened with `noopener,noreferrer` so the opened page cannot reference the original page.
+
+### Open Source and Transparency
+
+Browser extensions can feel sensitive because they run on pages you visit. This extension is fully open source, and the exact code that runs is available in this repository.
+
+The safety model is intentionally simple:
+
+- It requests no additional Chrome extension permissions.
+- It does not store selected text, browsing history, or page content.
+- It does not send data to any background server.
+- It only places the selected text into a Google Search URL after the user clicks the search icon.
+- There is no build step, so the files in this repository are the files loaded by Chrome.
 
 ### Development
 
