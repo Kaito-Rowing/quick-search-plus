@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quick Search Plus Options</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: Canvas;
+        color: CanvasText;
+      }
+
+      main {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+        line-height: 1.2;
+      }
+
+      p {
+        margin: 0 0 24px;
+        color: color-mix(in srgb, CanvasText 72%, transparent);
+        line-height: 1.5;
+      }
+
+      form {
+        display: grid;
+        gap: 18px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .checkbox-label {
+        grid-template-columns: auto 1fr;
+        align-items: center;
+      }
+
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+      }
+
+      input[type="number"] {
+        width: 120px;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        border: 1px solid color-mix(in srgb, CanvasText 22%, transparent);
+        border-radius: 6px;
+        background: Canvas;
+        color: CanvasText;
+        font: inherit;
+      }
+
+      button {
+        width: fit-content;
+        padding: 9px 14px;
+        border: 0;
+        border-radius: 6px;
+        background: #2563eb;
+        color: #ffffff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      input:focus-visible {
+        outline: 3px solid rgba(37, 99, 235, 0.35);
+        outline-offset: 2px;
+      }
+
+      #status {
+        min-height: 20px;
+        color: #15803d;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Quick Search Plus Options</h1>
+      <p>Control the optional character count shown near selected text. Google search behavior is unchanged.</p>
+
+      <form id="settings-form">
+        <label class="checkbox-label">
+          <input id="count-enabled" type="checkbox">
+          Show character count for longer selections
+        </label>
+
+        <label>
+          Minimum characters
+          <input id="count-threshold" type="number" min="1" step="1" inputmode="numeric">
+        </label>
+
+        <button type="submit">Save</button>
+        <div id="status" role="status" aria-live="polite"></div>
+      </form>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

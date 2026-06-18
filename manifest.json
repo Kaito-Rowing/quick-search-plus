@@ -1,9 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Quick Google Search",
-  "version": "1.0.0",
-  "description": "選択したテキストをワンクリックでGoogle検索できます。",
-  "permissions": [],
+  "name": "Quick Search Plus",
+  "version": "1.1.0",
+  "description": "Shows a Google search icon near selected text, plus an optional character count for longer selections.",
+  "permissions": ["storage"],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

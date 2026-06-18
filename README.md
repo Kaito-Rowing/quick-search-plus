@@ -1,65 +1,17 @@
-# Quick Google Search
+# Quick Search Plus
 
-選択したテキストの近くに検索アイコンを表示し、クリックするとGoogle検索を開くChrome拡張機能です。
+Quick Search Plus is a fork of [Quick Google Search](https://github.com/Kaito-Rowing/quick-google-search).
+It keeps the original selected-text Google search behavior and adds an optional character-count badge for longer selections.
 
-## 機能
-
-- Webページ上でテキストを選択すると検索アイコンを表示します。
-- アイコンをクリックすると、選択したテキストでGoogle検索を新しいタブに開きます。
-- 拡張機能の権限は追加していません。
-- 選択テキストは保存せず、クリックした時だけGoogle検索URLに渡します。
-
-## インストール方法
-
-1. このリポジトリをダウンロード、またはcloneします。
-2. Chromeで `chrome://extensions/` を開きます。
-3. 右上の「デベロッパー モード」を有効にします。
-4. 「パッケージ化されていない拡張機能を読み込む」をクリックします。
-5. このリポジトリのフォルダを選択します。
-
-## 権限とセキュリティ
-
-- `permissions` は空配列です。
-- `content_scripts.matches` は `<all_urls>` です。これは、任意のページでテキスト選択を検出して検索アイコンを表示するために必要です。
-- 外部通信は、ユーザーが検索アイコンをクリックした時にGoogle検索ページを新しいタブで開く動作だけです。
-- `eval`、動的スクリプト実行、ストレージ保存、外部API通信、リモートコード読み込みは使用していません。
-- 検索タブは `noopener,noreferrer` 付きで開き、開いたページから元ページを参照できないようにしています。
-
-## オープンソースと透明性
-
-ブラウザ拡張機能は表示中のページ上で動くため、どんな処理をしているのか不安になりやすい種類のソフトウェアです。この拡張機能は完全にオープンソースで、実際に動くコードをこのリポジトリ上で確認できます。
-
-安心材料として、次の点を明確にしています。
-
-- Chrome拡張機能の追加権限を要求しません。
-- 選択したテキスト、閲覧履歴、ページ内容を保存しません。
-- 外部サーバーへバックグラウンド送信しません。
-- ユーザーが検索アイコンをクリックした時だけ、選択テキストをGoogle検索URLに入れて新しいタブを開きます。
-- ビルド手順がないため、リポジトリ内のファイルがそのまま拡張機能として読み込まれます。
-
-## 開発
-
-この拡張機能はビルド手順なしで動作します。ファイルを編集した後は、`chrome://extensions/` で拡張機能を再読み込みしてください。
-
-主要ファイル:
-
-- `manifest.json`: Chrome拡張機能の定義
-- `content.js`: 選択テキストの検出と検索アイコンの動作
-- `styles.css`: 検索アイコンのスタイル
-- `icons/`: 拡張機能アイコン
-
-## English
-
-Quick Google Search is a Chrome extension that shows a search icon near selected text and opens a Google search for that text when clicked.
-
-### Features
+## Features
 
 - Shows a search icon when text is selected on a web page.
-- Opens a Google search for the selected text in a new tab.
-- Uses no extension permissions.
-- Does not store selected text. The text is only sent as part of the Google search URL after the user clicks the icon.
+- Opens a Google search for the selected text in a new tab when the icon is clicked.
+- Shows a small character-count badge near the selection cursor when the selected text reaches the configured threshold.
+- Lets you turn the character-count badge on or off from the extension options page.
+- Lets you change the character-count threshold. The default is 30 characters.
 
-### Installation
+## Installation
 
 1. Download or clone this repository.
 2. Open `chrome://extensions/` in Chrome.
@@ -67,29 +19,38 @@ Quick Google Search is a Chrome extension that shows a search icon near selected
 4. Click "Load unpacked".
 5. Select this repository folder.
 
-### Permissions and Security
+## Options
 
-- `permissions` is an empty array.
+Open the extension options page to configure:
+
+- `Show character count for longer selections`: enables or disables the badge.
+- `Minimum characters`: controls the threshold for showing the badge.
+
+The default settings are:
+
+- Character count enabled: `true`
+- Minimum characters: `30`
+
+## Permissions and Security
+
+- `storage` is used only to save the character-count setting and threshold.
 - `content_scripts.matches` uses `<all_urls>` so the extension can detect selected text and show the search icon on any page.
-- The only external navigation happens when the user clicks the search icon, which opens Google Search in a new tab.
-- The extension does not use `eval`, dynamic script execution, local storage, external API calls, or remote code loading.
+- The extension does not store selected text, browsing history, or page content.
+- The selected text is only placed into a Google Search URL after the user clicks the search icon.
 - Search tabs are opened with `noopener,noreferrer` so the opened page cannot reference the original page.
+- The extension does not use `eval`, dynamic script execution, external API calls, or remote code loading.
 
-### Open Source and Transparency
-
-Browser extensions can feel sensitive because they run on pages you visit. This extension is fully open source, and the exact code that runs is available in this repository.
-
-The safety model is intentionally simple:
-
-- It requests no additional Chrome extension permissions.
-- It does not store selected text, browsing history, or page content.
-- It does not send data to any background server.
-- It only places the selected text into a Google Search URL after the user clicks the search icon.
-- There is no build step, so the files in this repository are the files loaded by Chrome.
-
-### Development
+## Development
 
 No build step is required. After editing files, reload the extension from `chrome://extensions/`.
+
+Main files:
+
+- `manifest.json`: Chrome extension definition.
+- `content.js`: selected-text detection, search icon behavior, and character-count badge behavior.
+- `styles.css`: search icon and character-count badge styles.
+- `options.html` and `options.js`: settings UI for the character-count badge.
+- `icons/`: extension icons.
 
 ## License
 

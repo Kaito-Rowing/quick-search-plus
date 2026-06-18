@@ -57,3 +57,47 @@
   color: currentColor !important;
   pointer-events: none !important;
 }
+
+#quick-google-search-count-badge {
+  all: initial;
+  position: fixed !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 38px !important;
+  height: 24px !important;
+  padding: 0 8px !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  border-radius: 999px !important;
+  background: rgba(17, 24, 39, 0.9) !important;
+  color: #ffffff !important;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  z-index: 2147483647 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: scale(0.92) !important;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms ease !important;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.22) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  contain: layout style paint !important;
+}
+
+#quick-google-search-count-badge.quick-google-search-count-badge--visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: scale(1) !important;
+}
