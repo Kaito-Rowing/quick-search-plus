@@ -1,76 +1,69 @@
-const DEFAULT_SETTINGS = {
-  characterCountEnabled: true,
-  characterCountThreshold: 30,
-  copyButtonEnabled: true,
-  openUrlEnabled: true
-};
-
-const form = document.querySelector('#settings-form');
-const copyEnabledInput = document.querySelector('#copy-enabled');
-const openUrlEnabledInput = document.querySelector('#open-url-enabled');
-const enabledInput = document.querySelector('#count-enabled');
-const thresholdInput = document.querySelector('#count-threshold');
-const statusElement = document.querySelector('#status');
-
-function normalizeThreshold(value) {
-  const threshold = Number.parseInt(value, 10);
-
-  if (!Number.isFinite(threshold) || threshold < 1) {
-    return DEFAULT_SETTINGS.characterCountThreshold;
+(() => {
+  const { defaults, normalizeSettings, validThreshold } = QuickSearchPlusCore;
+  const message = key => chrome.i18n.getMessage(key);
+  document.documentElement.lang = chrome.i18n.getUILanguage();
+  document.title = `Quick Search Plus — ${message('optionsTitle')}`;
+  for (const element of document.querySelectorAll('[data-i18n]')) element.textContent = message(element.dataset.i18n);
+  const form = document.querySelector('#settings-form');
+  const fieldset = form.querySelector('fieldset');
+  const copy = document.querySelector('#copy-enabled');
+  const url = document.querySelector('#open-url-enabled');
+  const count = document.querySelector('#count-enabled');
+  const threshold = document.querySelector('#count-threshold');
+  const status = document.querySelector('#status');
+  const retry = document.querySelector('#retry');
+  let statusTimer;
+  function setStatus(key, error = false, temporary = false) {
+    clearTimeout(statusTimer);
+    status.textContent = key ? message(key) : '';
+    status.dataset.state = error ? 'error' : '';
+    if (temporary) statusTimer = setTimeout(() => { status.textContent = ''; }, 2500);
   }
-
-  return threshold;
-}
-
-function setStatus(message) {
-  statusElement.textContent = message;
-
-  if (message) {
-    window.setTimeout(() => {
-      statusElement.textContent = '';
-    }, 1600);
+  function render(raw) {
+    const settings = normalizeSettings(raw);
+    copy.checked = settings.copyButtonEnabled;
+    url.checked = settings.openUrlEnabled;
+    count.checked = settings.characterCountEnabled;
+    threshold.value = settings.characterCountThreshold;
+    threshold.disabled = !count.checked;
   }
-}
-
-function renderSettings(settings) {
-  enabledInput.checked = settings.characterCountEnabled !== false;
-  thresholdInput.value = String(normalizeThreshold(settings.characterCountThreshold));
-  copyEnabledInput.checked = settings.copyButtonEnabled !== false;
-  openUrlEnabledInput.checked = settings.openUrlEnabled !== false;
-}
-
-function loadSettings() {
-  chrome.storage.sync.get(DEFAULT_SETTINGS, (settings) => {
-    if (chrome.runtime.lastError) {
-      setStatus('Could not load settings.');
-      return;
+  async function load() {
+    fieldset.disabled = true;
+    retry.hidden = true;
+    setStatus('loading');
+    try {
+      render(await chrome.storage.sync.get(defaults));
+      fieldset.disabled = false;
+      setStatus('');
+    } catch {
+      setStatus('loadFailed', true);
+      retry.hidden = false;
     }
-
-    renderSettings(settings);
+  }
+  form.addEventListener('input', () => {
+    threshold.disabled = !count.checked;
+    threshold.setCustomValidity('');
+    setStatus('unsaved');
   });
-}
-
-function saveSettings(event) {
-  event.preventDefault();
-
-  const settings = {
-    characterCountEnabled: enabledInput.checked,
-    characterCountThreshold: normalizeThreshold(thresholdInput.value),
-    copyButtonEnabled: copyEnabledInput.checked,
-    openUrlEnabled: openUrlEnabledInput.checked
-  };
-
-  thresholdInput.value = String(settings.characterCountThreshold);
-
-  chrome.storage.sync.set(settings, () => {
-    if (chrome.runtime.lastError) {
-      setStatus('Could not save settings.');
-      return;
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (count.checked && !validThreshold(threshold.value)) {
+      threshold.setCustomValidity(message('thresholdHint')); threshold.reportValidity(); return;
     }
-
-    setStatus('Saved.');
+    const settings = normalizeSettings({ copyButtonEnabled: copy.checked, openUrlEnabled: url.checked,
+      characterCountEnabled: count.checked, characterCountThreshold: threshold.value });
+    fieldset.disabled = true;
+    setStatus('saving');
+    try {
+      await chrome.storage.sync.set(settings);
+      threshold.value = settings.characterCountThreshold;
+      setStatus('saved', false, true);
+    } catch { setStatus('saveFailed', true); }
+    finally { fieldset.disabled = false; }
   });
-}
-
-form.addEventListener('submit', saveSettings);
-document.addEventListener('DOMContentLoaded', loadSettings);
+  document.querySelector('#reset').addEventListener('click', () => {
+    render(defaults); threshold.setCustomValidity(''); setStatus('resetPending');
+  });
+  retry.addEventListener('click', load);
+  load();
+})();

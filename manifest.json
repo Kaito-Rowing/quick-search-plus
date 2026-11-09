@@ -1,8 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Quick Search Plus",
-  "version": "1.2.0",
-  "description": "Shows quick search, copy, URL open, and optional character count actions near selected text.",
+  "version": "1.2.1",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "en",
+  "minimum_chrome_version": "123",
+  "homepage_url": "https://github.com/Kaito-Rowing/quick-search-plus",
   "permissions": ["storage", "clipboardWrite"],
   "options_ui": {
     "page": "options.html",
@@ -10,14 +13,14 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["styles.css"]
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["shared.js", "content.js"]
     }
   ],
   "icons": {
-    "16": "icons/icon16.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
 }
