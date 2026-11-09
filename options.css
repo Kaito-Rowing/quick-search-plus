@@ -1,0 +1,33 @@
+:root { color-scheme: light dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:CanvasText; background:Canvas; }
+* { box-sizing:border-box; }
+body { margin:0; }
+main { max-width:660px; margin:56px auto; padding:0 24px; }
+header { display:flex; gap:16px; align-items:center; }
+header img { flex-shrink:0; }
+.eyebrow { margin:0 0 6px; color:#648477; font-size:11px; font-weight:700; letter-spacing:1.5px; }
+h1 { margin:0; font-size:28px; line-height:1.25; letter-spacing:-.8px; }
+.intro { margin:24px 0 28px; line-height:1.65; color:color-mix(in srgb, CanvasText 70%, Canvas); }
+fieldset { border:1px solid color-mix(in srgb, CanvasText 14%, Canvas); border-radius:18px; margin:0; padding:0 24px 24px; min-width:0; }
+.setting { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:24px 0; border-bottom:1px solid color-mix(in srgb, CanvasText 10%, Canvas); cursor:pointer; }
+strong { display:block; font-size:15px; font-weight:650; margin-bottom:7px; }
+small { display:block; line-height:1.6; color:color-mix(in srgb, CanvasText 65%, Canvas); font-size:13px; }
+input[type=checkbox] { width:20px; height:20px; accent-color:#16803d; flex-shrink:0; }
+.threshold { padding:24px 0; }
+.threshold label { display:block; font-size:14px; font-weight:600; margin-bottom:12px; }
+.threshold>div { display:flex; align-items:center; gap:12px; font-size:14px; }
+.threshold small { margin-top:10px; }
+input[type=number] { width:110px; padding:9px 12px; border:1px solid color-mix(in srgb, CanvasText 25%, Canvas); border-radius:8px; background:Canvas; color:CanvasText; font:inherit; }
+.buttons { display:flex; flex-wrap:wrap; gap:10px; }
+button { border:0; padding:11px 18px; background:#176b42; color:#fff; border-radius:9px; font:600 14px/1.3 system-ui,sans-serif; cursor:pointer; }
+button.secondary { background:color-mix(in srgb, CanvasText 7%, Canvas); color:CanvasText; }
+button:hover { filter:brightness(1.12); }
+input:disabled,fieldset:disabled { opacity:.55; }
+button:focus-visible,input:focus-visible,a:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
+#status { min-height:22px; font-size:13px; color:#16803d; margin:16px 2px; }
+#status[data-state=error] { color:light-dark(#b91c1c,#fca5a5); }
+footer { border-top:1px solid color-mix(in srgb, CanvasText 10%, Canvas); margin-top:22px; padding-top:16px; font-size:12px; line-height:1.7; color:color-mix(in srgb, CanvasText 65%, Canvas); }
+footer p { margin:0 0 10px; }
+a { color:light-dark(#176b42,#86d5ad); }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+[hidden] { display:none!important; }
+@media(max-width:480px) { main { margin:28px auto; padding:0 18px; } fieldset { padding:0 18px 20px; } h1 { font-size:24px; } }

@@ -1,611 +1,290 @@
 (() => {
-  const TOOLBAR_ID = 'quick-search-plus-toolbar';
-  const PRIMARY_BUTTON_ID = 'quick-google-search-icon';
-  const COPY_BUTTON_ID = 'quick-search-plus-copy-button';
-  const COUNT_BADGE_ID = 'quick-google-search-count-badge';
-  const TOOLBAR_VISIBLE_CLASS = 'quick-search-plus-toolbar--visible';
-  const PRIMARY_OPEN_CLASS = 'quick-search-plus-primary--open';
-  const COPY_SUCCESS_CLASS = 'quick-search-plus-copy-button--success';
-  const COPY_ERROR_CLASS = 'quick-search-plus-copy-button--error';
-  const COUNT_BADGE_VISIBLE_CLASS = 'quick-google-search-count-badge--visible';
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-  const ICON_SIZE = 40;
-  const TOOLBAR_GAP = 6;
-  const OFFSET = 12;
-  const EDGE_MARGIN = 8;
-  const COUNT_BADGE_OFFSET = 8;
-  const COPY_FEEDBACK_MS = 1100;
-  const DEFAULT_SETTINGS = {
-    characterCountEnabled: true,
-    characterCountThreshold: 30,
-    copyButtonEnabled: true,
-    openUrlEnabled: true
-  };
+  const { defaults, normalizeSettings, getOpenableUrl, countCharacters } = QuickSearchPlusCore;
+  const message = (key, substitutions) => chrome.i18n.getMessage(key, substitutions);
+  let settings = { ...defaults };
+  let loaded = false;
+  let settingsRevision = 0;
+  let host, shadow, primary, copy, badge, status;
+  let selected = '';
+  let timer, feedbackTimer;
+  let generation = 0;
+  let dragging = false;
+  let dismissed = false;
+  let copying = false;
+  let fallbackCopying = false;
 
-  let toolbar = null;
-  let primaryButton = null;
-  let copyButton = null;
-  let countBadge = null;
-  let selectedText = '';
-  let selectedUrl = null;
-  let settings = { ...DEFAULT_SETTINGS };
-  let copyFeedbackTimer = null;
-  let graphemeSegmenter = null;
-
-  if (typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
-    graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  const ownEvent = event => host && event.composedPath().includes(host);
+  const important = (name, value) => host.style.setProperty(name, value, 'important');
+  function hide() {
+    clearTimeout(timer);
+    clearTimeout(feedbackTimer);
+    generation++;
+    selected = '';
+    copying = false;
+    if (host) {
+      important('display', 'none');
+      status.textContent = '';
+      copy.disabled = false;
+      primary.dataset.url = '';
+    }
   }
-
-  function createSvgElement(tagName, attributes) {
-    const element = document.createElementNS(SVG_NS, tagName);
-
-    Object.entries(attributes).forEach(([name, value]) => {
-      element.setAttribute(name, value);
-    });
-
-    return element;
+  function readSelection() {
+    const editable = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]';
+    let active = document.activeElement;
+    while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+    if (active?.closest(editable)) return null;
+    const selection = getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+    const range = selection.getRangeAt(0);
+    const element = node => node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    if (element(range.startContainer)?.closest(editable) || element(range.endContainer)?.closest(editable)) return null;
+    const ancestor = range.commonAncestorContainer;
+    if (ancestor.querySelectorAll && [...ancestor.querySelectorAll(editable)].some(el => range.intersectsNode(el))) return null;
+    const raw = selection.toString();
+    if (!raw.trim()) return null;
+    const rects = range.getClientRects();
+    // Anchor to the moving end, including backwards selections.
+    const backwards = selection.anchorNode === range.endContainer && selection.anchorOffset === range.endOffset;
+    const rect = backwards ? rects[0] : rects[rects.length - 1];
+    return rect ? { raw, text: raw.trim(), rect, backwards } : null;
   }
-
-  function createIconSvg(paths) {
-    const svg = createSvgElement('svg', {
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      stroke: 'currentColor',
-      'stroke-width': '2',
-      'stroke-linecap': 'round',
-      'stroke-linejoin': 'round',
-      'aria-hidden': 'true',
-      focusable: 'false'
+  function icon(button, name) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+      'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' })) svg.setAttribute(key, value);
+    const paths = {
+      search: 'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0M15 15l6 6',
+      open: 'M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
+      copy: 'M9 9h12v12H9zM5 15H3V3h12v2',
+      check: 'M5 12l4 4L20 5', error: 'M12 5v9M12 18v1'
+    };
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', paths[name]);
+    svg.append(path);
+    button.replaceChildren(svg);
+  }
+  function label(button, text) {
+    button.title = text;
+    button.setAttribute('aria-label', text);
+  }
+  function resetCopy() {
+    clearTimeout(feedbackTimer);
+    copy.dataset.state = '';
+    icon(copy, 'copy');
+    label(copy, message('copyLabel'));
+    status.textContent = '';
+  }
+  function createUi() {
+    host = document.createElement('quick-search-plus');
+    for (const [key, value] of Object.entries({ all: 'initial', position: 'fixed', display: 'none', margin: '0',
+      padding: '0', border: '0', background: 'transparent', 'box-shadow': 'none',
+      'z-index': '2147483647', 'color-scheme': 'light', transform: 'none', opacity: '1',
+      visibility: 'visible', 'pointer-events': 'auto', overflow: 'visible', 'border-radius': '0' })) important(key, value);
+    shadow = host.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = `
+      .actions { display:flex; align-items:center; gap:6px; width:max-content; padding:0; margin:0; }
+      button { all:initial; box-sizing:border-box; display:grid; place-items:center; flex:0 0 40px;
+        width:40px; height:40px; padding:0; margin:0; border:0; border-radius:50%; color:white;
+        background:linear-gradient(135deg,#2563eb,#16803d); appearance:none; cursor:pointer;
+        box-shadow:0 3px 12px #0f172a33; user-select:none; -webkit-tap-highlight-color:transparent; }
+      button[data-action="copy"] { background:#1e293b; }
+      button[data-mode="open"] { background:linear-gradient(135deg,#087f8c,#2563eb); }
+      button:hover { filter:brightness(1.12); }
+      button:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
+      button:disabled { cursor:wait; opacity:.65; }
+      button[data-state="success"] { background:#15803d; }
+      button[data-state="error"] { background:#b91c1c; }
+      svg { width:20px; height:20px; display:block; pointer-events:none; }
+      .count { box-sizing:border-box; padding:6px 9px; border-radius:999px; background:#1e293b;
+        color:white; font:600 12px/1 system-ui,sans-serif; white-space:nowrap; user-select:none; }
+      [hidden] { display:none!important; }
+      .status { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+      @media(forced-colors:active) { button,.count { background:ButtonFace; color:ButtonText; border:1px solid ButtonText; } }
+    `;
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    actions.setAttribute('role', 'group');
+    actions.setAttribute('aria-label', message('actionsLabel'));
+    primary = document.createElement('button');
+    primary.type = 'button';
+    primary.dataset.action = 'primary';
+    copy = document.createElement('button');
+    copy.type = 'button';
+    copy.dataset.action = 'copy';
+    badge = document.createElement('span');
+    badge.className = 'count';
+    status = document.createElement('span');
+    status.className = 'status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    for (const button of [primary, copy]) button.addEventListener('pointerdown', event => {
+      if (event.button === 0) event.preventDefault();
+      event.stopPropagation();
     });
-
-    paths.forEach((path) => {
-      if (path.tag === 'circle') {
-        svg.appendChild(createSvgElement('circle', path.attributes));
-        return;
+    primary.addEventListener('click', event => {
+      event.preventDefault(); event.stopPropagation();
+      const current = readSelection();
+      if (!event.isTrusted || !selected || !current) return;
+      const url = settings.openUrlEnabled && getOpenableUrl(current.text);
+      // Never switch a visible Search action into an unexpected direct navigation.
+      if (url && primary.dataset.mode === 'open' && primary.dataset.url === url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        const search = new URL('https://www.google.com/search');
+        search.searchParams.set('q', current.text);
+        window.open(search.href, '_blank', 'noopener,noreferrer');
       }
-
-      if (path.tag === 'rect') {
-        svg.appendChild(createSvgElement('rect', path.attributes));
-        return;
-      }
-
-      svg.appendChild(createSvgElement('path', path.attributes));
+      dismissed = true; hide();
     });
-
-    return svg;
+    copy.addEventListener('click', copySelection);
+    actions.append(primary, copy, badge);
+    shadow.append(style, actions, status);
+    document.documentElement.append(host);
   }
-
-  function getIconPaths(name) {
-    const icons = {
-      search: [
-        { tag: 'circle', attributes: { cx: '11', cy: '11', r: '8' } },
-        { tag: 'path', attributes: { d: 'm21 21-4.35-4.35' } }
-      ],
-      open: [
-        { tag: 'path', attributes: { d: 'M15 3h6v6' } },
-        { tag: 'path', attributes: { d: 'M10 14 21 3' } },
-        { tag: 'path', attributes: { d: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6' } }
-      ],
-      copy: [
-        { tag: 'rect', attributes: { x: '9', y: '9', width: '13', height: '13', rx: '2', ry: '2' } },
-        { tag: 'path', attributes: { d: 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1' } }
-      ],
-      check: [
-        { tag: 'path', attributes: { d: 'M20 6 9 17l-5-5' } }
-      ],
-      alert: [
-        { tag: 'path', attributes: { d: 'M12 9v4' } },
-        { tag: 'path', attributes: { d: 'M12 17h.01' } },
-        { tag: 'path', attributes: { d: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z' } }
-      ]
-    };
-
-    return icons[name];
-  }
-
-  function setButtonIcon(button, iconName) {
-    button.replaceChildren(createIconSvg(getIconPaths(iconName)));
-  }
-
-  function createIconButton(id, title, iconName) {
-    const button = document.createElement('button');
-    button.id = id;
-    button.type = 'button';
-    button.title = title;
-    button.setAttribute('aria-label', title);
-    setButtonIcon(button, iconName);
-    button.addEventListener('mousedown', handleToolbarMouseDown);
-    return button;
-  }
-
-  function createSelectionToolbar() {
-    const container = document.createElement('div');
-    container.id = TOOLBAR_ID;
-    container.setAttribute('aria-label', 'Quick Search Plus actions');
-
-    primaryButton = createIconButton(PRIMARY_BUTTON_ID, 'Search with Google', 'search');
-    primaryButton.addEventListener('click', handlePrimaryButtonClick);
-
-    copyButton = createIconButton(COPY_BUTTON_ID, 'Copy selected text', 'copy');
-    copyButton.addEventListener('click', handleCopyButtonClick);
-
-    container.append(primaryButton, copyButton);
-    (document.body || document.documentElement).appendChild(container);
-    return container;
-  }
-
-  function createCountBadge() {
-    const badge = document.createElement('div');
-    badge.id = COUNT_BADGE_ID;
-    badge.setAttribute('aria-hidden', 'true');
-    applyCountBadgeBaseStyles(badge);
-    applyCountBadgeVisibility(badge, false);
-
-    (document.body || document.documentElement).appendChild(badge);
-    return badge;
-  }
-
-  function setImportantStyle(element, property, value) {
-    element.style.setProperty(property, value, 'important');
-  }
-
-  function applyCountBadgeBaseStyles(badge) {
-    const styles = {
-      position: 'fixed',
-      'box-sizing': 'border-box',
-      display: 'inline-flex',
-      'align-items': 'center',
-      'justify-content': 'center',
-      'min-width': '38px',
-      height: '24px',
-      padding: '0 8px',
-      border: '1px solid rgba(15, 23, 42, 0.12)',
-      'border-radius': '999px',
-      background: 'rgba(17, 24, 39, 0.9)',
-      color: '#ffffff',
-      'font-family': 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      'font-size': '12px',
-      'font-weight': '600',
-      'line-height': '1',
-      'white-space': 'nowrap',
-      'z-index': '2147483647',
-      'box-shadow': '0 6px 18px rgba(15, 23, 42, 0.22)',
-      'pointer-events': 'none',
-      'user-select': 'none'
-    };
-
-    Object.entries(styles).forEach(([property, value]) => {
-      setImportantStyle(badge, property, value);
-    });
-  }
-
-  function applyCountBadgeVisibility(badge, isVisible) {
-    setImportantStyle(badge, 'opacity', isVisible ? '1' : '0');
-    setImportantStyle(badge, 'visibility', isVisible ? 'visible' : 'hidden');
-    setImportantStyle(badge, 'transform', isVisible ? 'scale(1)' : 'scale(0.92)');
-  }
-
-  function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), max);
-  }
-
-  function normalizeSettings(rawSettings) {
-    const threshold = Number.parseInt(rawSettings.characterCountThreshold, 10);
-
-    return {
-      characterCountEnabled: rawSettings.characterCountEnabled !== false,
-      characterCountThreshold: Number.isFinite(threshold) && threshold > 0
-        ? threshold
-        : DEFAULT_SETTINGS.characterCountThreshold,
-      copyButtonEnabled: rawSettings.copyButtonEnabled !== false,
-      openUrlEnabled: rawSettings.openUrlEnabled !== false
-    };
-  }
-
-  function loadSettings() {
-    if (
-      typeof chrome === 'undefined' ||
-      !chrome.storage ||
-      !chrome.storage.sync
-    ) {
-      return;
-    }
-
-    chrome.storage.sync.get(DEFAULT_SETTINGS, (storedSettings) => {
-      if (chrome.runtime.lastError) {
-        return;
-      }
-
-      settings = normalizeSettings(storedSettings);
-    });
-  }
-
-  function countCharacters(text) {
-    if (graphemeSegmenter) {
-      return Array.from(graphemeSegmenter.segment(text)).length;
-    }
-
-    return Array.from(text).length;
-  }
-
-  function getToolbarPosition(point) {
-    const fallbackWidth = settings.copyButtonEnabled
-      ? ICON_SIZE * 2 + TOOLBAR_GAP
-      : ICON_SIZE;
-    const rect = toolbar.getBoundingClientRect();
-    const toolbarWidth = rect.width || fallbackWidth;
-    const toolbarHeight = rect.height || ICON_SIZE;
-    const maxX = window.innerWidth - toolbarWidth - EDGE_MARGIN;
-    const maxY = window.innerHeight - toolbarHeight - EDGE_MARGIN;
-
-    let x = point.x + OFFSET;
-    let y = point.y + OFFSET;
-
-    if (x > maxX) {
-      x = point.x - toolbarWidth - OFFSET;
-    }
-
-    if (y > maxY) {
-      y = point.y - toolbarHeight - OFFSET;
-    }
-
-    return {
-      x: clamp(x, EDGE_MARGIN, Math.max(EDGE_MARGIN, maxX)),
-      y: clamp(y, EDGE_MARGIN, Math.max(EDGE_MARGIN, maxY))
-    };
-  }
-
-  function getCountBadgePosition(point) {
-    const rect = countBadge.getBoundingClientRect();
-    const badgeWidth = rect.width || 64;
-    const badgeHeight = rect.height || 24;
-    const maxX = window.innerWidth - badgeWidth - EDGE_MARGIN;
-    const maxY = window.innerHeight - badgeHeight - EDGE_MARGIN;
-
-    let x = point.x - badgeWidth - COUNT_BADGE_OFFSET;
-    let y = point.y + COUNT_BADGE_OFFSET;
-
-    if (x < EDGE_MARGIN) {
-      x = point.x + COUNT_BADGE_OFFSET;
-    }
-
-    if (y > maxY) {
-      y = point.y - badgeHeight - COUNT_BADGE_OFFSET;
-    }
-
-    return {
-      x: clamp(x, EDGE_MARGIN, Math.max(EDGE_MARGIN, maxX)),
-      y: clamp(y, EDGE_MARGIN, Math.max(EDGE_MARGIN, maxY))
-    };
-  }
-
-  function getSelectedText() {
-    const activeElement = document.activeElement;
-
-    if (
-      activeElement &&
-      (activeElement.tagName === 'TEXTAREA' ||
-        (activeElement.tagName === 'INPUT' &&
-          /^(search|text|url|email|tel)$/i.test(activeElement.type))) &&
-      typeof activeElement.selectionStart === 'number' &&
-      typeof activeElement.selectionEnd === 'number'
-    ) {
-      return activeElement.value
-        .slice(activeElement.selectionStart, activeElement.selectionEnd)
-        .trim();
-    }
-
-    return window.getSelection().toString().trim();
-  }
-
-  function isEmailLike(text) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
-  }
-
-  function hasDomainHostname(hostname) {
-    return /^(?:www\.)?(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(hostname);
-  }
-
-  function getOpenableUrl(text) {
-    const trimmedText = text.trim();
-
-    if (
-      !trimmedText ||
-      trimmedText.length > 2048 ||
-      /\s/.test(trimmedText) ||
-      isEmailLike(trimmedText)
-    ) {
-      return null;
-    }
-
-    const hasHttpScheme = /^https?:\/\//i.test(trimmedText);
-    const bareDomainPattern = /^(?:www\.)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d{2,5})?(?:[/?#][^\s]*)?$/i;
-
-    if (!hasHttpScheme && !bareDomainPattern.test(trimmedText)) {
-      return null;
-    }
-
-    try {
-      const url = new URL(hasHttpScheme ? trimmedText : `https://${trimmedText}`);
-
-      if (!/^https?:$/i.test(url.protocol) || !hasDomainHostname(url.hostname)) {
-        return null;
-      }
-
-      return url.toString();
-    } catch {
-      return null;
-    }
-  }
-
-  function openInNewTab(url) {
-    const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
-
-    if (openedWindow) {
-      openedWindow.opener = null;
-    }
-  }
-
-  function searchGoogle(text) {
-    const query = text.trim();
-
-    if (!query) {
-      return;
-    }
-
-    const url = new URL('https://www.google.com/search');
-    url.searchParams.set('q', query);
-    openInNewTab(url.toString());
-  }
-
-  function configurePrimaryButton(url) {
-    if (!primaryButton) {
-      return;
-    }
-
-    if (url) {
-      primaryButton.title = 'Open link';
-      primaryButton.setAttribute('aria-label', 'Open link');
-      primaryButton.classList.add(PRIMARY_OPEN_CLASS);
-      setButtonIcon(primaryButton, 'open');
-      return;
-    }
-
-    primaryButton.title = 'Search with Google';
-    primaryButton.setAttribute('aria-label', 'Search with Google');
-    primaryButton.classList.remove(PRIMARY_OPEN_CLASS);
-    setButtonIcon(primaryButton, 'search');
-  }
-
-  function resetCopyButtonFeedback() {
-    if (!copyButton) {
-      return;
-    }
-
-    window.clearTimeout(copyFeedbackTimer);
-    copyFeedbackTimer = null;
-    copyButton.classList.remove(COPY_SUCCESS_CLASS, COPY_ERROR_CLASS);
-    copyButton.title = 'Copy selected text';
-    copyButton.setAttribute('aria-label', 'Copy selected text');
-    setButtonIcon(copyButton, 'copy');
-  }
-
-  function showCopyButtonFeedback(isSuccess) {
-    if (!copyButton) {
-      return;
-    }
-
-    window.clearTimeout(copyFeedbackTimer);
-    copyButton.classList.remove(COPY_SUCCESS_CLASS, COPY_ERROR_CLASS);
-
-    if (isSuccess) {
-      copyButton.classList.add(COPY_SUCCESS_CLASS);
-      copyButton.title = 'Copied';
-      copyButton.setAttribute('aria-label', 'Copied');
-      setButtonIcon(copyButton, 'check');
-    } else {
-      copyButton.classList.add(COPY_ERROR_CLASS);
-      copyButton.title = 'Copy failed';
-      copyButton.setAttribute('aria-label', 'Copy failed');
-      setButtonIcon(copyButton, 'alert');
-    }
-
-    copyFeedbackTimer = window.setTimeout(resetCopyButtonFeedback, COPY_FEEDBACK_MS);
-  }
-
-  async function copySelectedText() {
-    if (!selectedText) {
-      return false;
-    }
-
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-      await navigator.clipboard.writeText(selectedText);
-      return true;
-    }
-
+  function fallbackCopy(text) {
+    const selection = getSelection();
+    const ranges = Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i).cloneRange());
+    const focused = shadow.activeElement;
     const textarea = document.createElement('textarea');
-    textarea.value = selectedText;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
-    textarea.style.top = '0';
-    (document.body || document.documentElement).appendChild(textarea);
-    textarea.select();
-
+    textarea.value = text;
+    textarea.readOnly = true;
+    textarea.style.cssText = 'position:fixed;left:-10000px;top:0;opacity:0;';
+    fallbackCopying = true;
+    shadow.append(textarea);
     try {
+      textarea.select();
       return document.execCommand('copy');
     } finally {
       textarea.remove();
+      selection.removeAllRanges();
+      for (const range of ranges) selection.addRange(range);
+      focused?.focus({ preventScroll: true });
+      // Selection events from the temporary control are delivered asynchronously.
+      setTimeout(() => { fallbackCopying = false; }, 0);
     }
   }
-
-  function showToolbar(point, url) {
-    if (!toolbar) {
-      toolbar = createSelectionToolbar();
-    }
-
-    resetCopyButtonFeedback();
-    configurePrimaryButton(url);
-    copyButton.hidden = !settings.copyButtonEnabled;
-    setImportantStyle(
-      copyButton,
-      'display',
-      settings.copyButtonEnabled ? 'inline-flex' : 'none'
-    );
-
-    const position = getToolbarPosition(point);
-    toolbar.style.left = `${position.x}px`;
-    toolbar.style.top = `${position.y}px`;
-    toolbar.classList.add(TOOLBAR_VISIBLE_CLASS);
-  }
-
-  function hideToolbar() {
-    if (toolbar) {
-      toolbar.classList.remove(TOOLBAR_VISIBLE_CLASS);
-      resetCopyButtonFeedback();
-    }
-  }
-
-  function showCountBadge(point, characterCount) {
-    if (!countBadge) {
-      countBadge = createCountBadge();
-    }
-
-    countBadge.textContent = `${characterCount}\u6587\u5b57`;
-
-    const position = getCountBadgePosition(point);
-    setImportantStyle(countBadge, 'left', `${position.x}px`);
-    setImportantStyle(countBadge, 'top', `${position.y}px`);
-    applyCountBadgeVisibility(countBadge, true);
-    countBadge.classList.add(COUNT_BADGE_VISIBLE_CLASS);
-  }
-
-  function hideCountBadge() {
-    if (countBadge) {
-      applyCountBadgeVisibility(countBadge, false);
-      countBadge.classList.remove(COUNT_BADGE_VISIBLE_CLASS);
-    }
-  }
-
-  function hideSelectionUi() {
-    hideToolbar();
-    hideCountBadge();
-  }
-
-  function handleToolbarMouseDown(event) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  function handlePrimaryButtonClick(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (selectedUrl) {
-      openInNewTab(selectedUrl);
-    } else {
-      searchGoogle(selectedText);
-    }
-
-    hideSelectionUi();
-  }
-
-  async function handleCopyButtonClick(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
+  async function copySelection(event) {
+    event.preventDefault(); event.stopPropagation();
+    const current = readSelection();
+    if (!event.isTrusted || !settings.copyButtonEnabled || !selected || !current || copying) return;
+    const version = generation;
+    copying = true;
+    copy.disabled = true;
+    let success = false;
     try {
-      showCopyButtonFeedback(await copySelectedText());
-    } catch {
-      showCopyButtonFeedback(false);
-    }
-  }
-
-  function updateSelectionUi(point) {
-    const text = getSelectedText();
-
-    if (text) {
-      const characterCount = countCharacters(text);
-
-      selectedText = text;
-      selectedUrl = settings.openUrlEnabled ? getOpenableUrl(text) : null;
-      showToolbar(point, selectedUrl);
-
-      if (
-        settings.characterCountEnabled &&
-        characterCount >= settings.characterCountThreshold
-      ) {
-        showCountBadge(point, characterCount);
-      } else {
-        hideCountBadge();
+      if (navigator.clipboard?.writeText) {
+        try { await navigator.clipboard.writeText(current.raw); success = true; } catch { /* Try the HTTP-compatible path. */ }
       }
-
-      return;
-    }
-
-    selectedText = '';
-    selectedUrl = null;
-    hideSelectionUi();
+      // If the user has changed selection while awaiting the API, do not move focus.
+      if (!success && generation === version) success = fallbackCopy(current.raw);
+    } catch { success = false; }
+    if (generation !== version) return;
+    copying = false;
+    copy.disabled = false;
+    copy.dataset.state = success ? 'success' : 'error';
+    icon(copy, success ? 'check' : 'error');
+    const text = message(success ? 'copied' : 'copyFailed');
+    label(copy, text);
+    status.textContent = text;
+    feedbackTimer = setTimeout(resetCopy, 1600);
   }
-
-  loadSettings();
-
-  if (
-    typeof chrome !== 'undefined' &&
-    chrome.storage &&
-    chrome.storage.onChanged
-  ) {
-    chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== 'sync') {
-        return;
-      }
-
-      if (
-        changes.characterCountEnabled ||
-        changes.characterCountThreshold ||
-        changes.copyButtonEnabled ||
-        changes.openUrlEnabled
-      ) {
-        settings = normalizeSettings({
-          characterCountEnabled: changes.characterCountEnabled
-            ? changes.characterCountEnabled.newValue
-            : settings.characterCountEnabled,
-          characterCountThreshold: changes.characterCountThreshold
-            ? changes.characterCountThreshold.newValue
-            : settings.characterCountThreshold,
-          copyButtonEnabled: changes.copyButtonEnabled
-            ? changes.copyButtonEnabled.newValue
-            : settings.copyButtonEnabled,
-          openUrlEnabled: changes.openUrlEnabled
-            ? changes.openUrlEnabled.newValue
-            : settings.openUrlEnabled
-        });
-        hideSelectionUi();
-      }
-    });
-  }
-
-  document.addEventListener('mouseup', (event) => {
-    if (toolbar && toolbar.contains(event.target)) {
-      return;
+  function update(point) {
+    if (!loaded || dismissed || dragging || fallbackCopying) return;
+    const current = readSelection();
+    if (!current) return hide();
+    if (!host) createUi();
+    if (!host.isConnected) document.documentElement.append(host);
+    if (selected !== current.raw) {
+      generation++;
+      copying = false;
+      copy.disabled = false;
+      resetCopy();
     }
-
-    const point = {
-      x: event.clientX,
-      y: event.clientY
-    };
-
-    window.setTimeout(() => updateSelectionUi(point), 10);
+    selected = current.raw;
+    const url = settings.openUrlEnabled && getOpenableUrl(current.text);
+    primary.dataset.mode = url ? 'open' : 'search';
+    primary.dataset.url = url || '';
+    label(primary, url ? `${message('openLabel')} — ${new URL(url).hostname}` : message('searchLabel'));
+    icon(primary, url ? 'open' : 'search');
+    copy.hidden = !settings.copyButtonEnabled;
+    let count = 0;
+    if (settings.characterCountEnabled) count = countCharacters(current.raw);
+    badge.hidden = !settings.characterCountEnabled || count < settings.characterCountThreshold;
+    badge.textContent = badge.hidden ? '' : message('characterCount', String(count));
+    const viewport = window.visualViewport;
+    const left = viewport?.offsetLeft ?? 0, top = viewport?.offsetTop ?? 0;
+    const right = left + (viewport?.width ?? innerWidth), bottom = top + (viewport?.height ?? innerHeight);
+    if (current.rect.bottom < top || current.rect.top > bottom) return hide();
+    important('display', 'block');
+    // Badge and actions share one measured group so they cannot overlap.
+    const box = shadow.querySelector('.actions').getBoundingClientRect();
+    important('width', `${box.width}px`);
+    important('height', `${box.height}px`);
+    const anchor = point ?? { x: current.backwards ? current.rect.left : current.rect.right, y: current.rect.bottom };
+    const clamp = (v, min, max) => Math.max(min, Math.min(v, Math.max(min, max)));
+    const x = anchor.x + 12 + box.width > right - 8 ? anchor.x - box.width - 12 : anchor.x + 12;
+    const y = anchor.y + 12 + box.height > bottom - 8 ? anchor.y - box.height - 12 : anchor.y + 12;
+    important('left', `${clamp(x, left + 8, right - box.width - 8)}px`);
+    important('top', `${clamp(y, top + 8, bottom - box.height - 8)}px`);
+  }
+  function schedule(point) { clearTimeout(timer); timer = setTimeout(() => update(point), 20); }
+  const dismiss = () => { dismissed = true; hide(); };
+  document.addEventListener('pointerdown', event => {
+    if (ownEvent(event)) return;
+    dragging = event.button === 0;
+    dismissed = false; hide();
+  }, true);
+  document.addEventListener('pointerup', event => {
+    if (ownEvent(event)) return;
+    dragging = false;
+    if (event.button === 0) schedule({ x: event.clientX, y: event.clientY });
+  }, true);
+  document.addEventListener('pointercancel', () => { dragging = false; hide(); }, true);
+  document.addEventListener('selectionchange', () => {
+    if (fallbackCopying || document.activeElement === host) return;
+    dismissed = false; hide(); schedule();
   });
-
-  document.addEventListener('mousedown', (event) => {
-    if (toolbar && toolbar.contains(event.target)) {
-      return;
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Tab' && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey &&
+        loaded && !dismissed && !dragging && document.activeElement !== host && readSelection()) {
+      clearTimeout(timer); update();
+      if (selected) { event.preventDefault(); primary.focus({ preventScroll: true }); }
     }
-
-    hideSelectionUi();
+    if (event.key === 'Escape') {
+      shadow?.activeElement?.blur(); dismiss();
+    }
+  }, true);
+  document.addEventListener('keyup', event => {
+    if (event.key === 'Escape' || event.key === 'Tab' || ownEvent(event)) return;
+    if (event.shiftKey || event.key.startsWith('Arrow') || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a')) {
+      dismissed = false; schedule();
+    }
   });
+  document.addEventListener('scroll', dismiss, true);
+  window.addEventListener('resize', dismiss);
+  window.addEventListener('blur', () => { dragging = false; dismiss(); });
+  window.addEventListener('pagehide', dismiss);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) dismiss(); });
+  visualViewport?.addEventListener('scroll', dismiss);
+  visualViewport?.addEventListener('resize', dismiss);
 
-  document.addEventListener('scroll', hideSelectionUi, true);
-  window.addEventListener('resize', hideSelectionUi);
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'sync' || !Object.keys(defaults).some(key => key in changes)) return;
+    settingsRevision++;
+    const next = { ...settings };
+    for (const key of Object.keys(defaults)) if (key in changes) next[key] = changes[key].newValue;
+    settings = normalizeSettings(next);
+    loaded = true;
+    hide();
+    if (!dismissed) schedule();
+  });
+  const initialRevision = settingsRevision;
+  chrome.storage.sync.get(defaults, stored => {
+    const error = chrome.runtime.lastError;
+    if (!error && settingsRevision === initialRevision) settings = normalizeSettings(stored);
+    loaded = true;
+    if (!dismissed) schedule();
+  });
 })();
