@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.1 — Unreleased
+## 1.2.1 — 2026-11-09
 
 ### Fixed
 - Isolate the selection UI in Shadow DOM and keep the host transparent, preventing page styles from adding square backgrounds or borders.

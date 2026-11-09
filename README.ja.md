@@ -30,7 +30,7 @@
 
 現在、Chrome ウェブストアには掲載していません。ローカルにインストールできます。
 
-1. [ソースZIPをダウンロード](https://github.com/Kaito-Rowing/quick-search-plus/archive/refs/heads/main.zip)して展開するか、リポジトリをcloneします。
+1. [拡張機能のZIPをダウンロード](https://github.com/Kaito-Rowing/quick-search-plus/releases/download/v1.2.1/quick-search-plus-1.2.1.zip)して展開するか、リポジトリをcloneします。
 2. Chromeで `chrome://extensions` を開き、**デベロッパー モード**を有効にします。
 3. **パッケージ化されていない拡張機能を読み込む**を選び、`manifest.json` のあるフォルダを指定します。
 4. すでに開いていたWebページを再読み込みします。

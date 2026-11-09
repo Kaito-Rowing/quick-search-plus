@@ -30,7 +30,7 @@ This is the sibling of [Quick Google Search](https://github.com/Kaito-Rowing/qui
 
 There is currently no Chrome Web Store listing. To install locally:
 
-1. [Download the source ZIP](https://github.com/Kaito-Rowing/quick-search-plus/archive/refs/heads/main.zip) and extract it, or clone this repository.
+1. [Download the extension ZIP](https://github.com/Kaito-Rowing/quick-search-plus/releases/download/v1.2.1/quick-search-plus-1.2.1.zip) and extract it, or clone this repository.
 2. Open `chrome://extensions` in Chrome and enable **Developer mode**.
 3. Choose **Load unpacked** and select the folder containing `manifest.json`.
 4. Refresh any web pages that were already open.
